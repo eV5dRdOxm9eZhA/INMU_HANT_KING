@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>HANT_INMU_PLAY_8</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/app.css">
+<script src="config.js"></script>
+</head>
+<body>
+
+<!-- ===== 起動画面（アカウント） ===== -->
+<div class="overlay" id="startupOverlay">
+  <div class="start-card">
+    <h1>HANT_INMU_PLAY_8</h1>
+    <p class="lead">Webカメラでポーズを判定して点数を稼ぐゲームです。</p>
+    <p class="rotate-hint">📱 スマホは<b>横向き</b>にすると見やすくなります。</p>
+
+    <ul class="privacy-list">
+      <li>カメラ映像は<b>この端末の中だけ</b>で処理。外部へは一切送信しません</li>
+      <li>サーバーに送るのは「アカウントID・点数・最終アクセス時刻」だけ</li>
+      <li>映像・IPアドレス・端末情報はサーバーに保存しません</li>
+    </ul>
+
+    <!-- 未ログイン -->
+    <div id="authView">
+      <div class="tabs" role="tablist" aria-label="アカウント">
+        <button class="tab" role="tab" id="tabLogin" aria-selected="true" data-tab="login">ログイン</button>
+        <button class="tab" role="tab" id="tabRegister" aria-selected="false" data-tab="register">新規登録</button>
+        <button class="tab" role="tab" id="tabGuest" aria-selected="false" data-tab="guest">ゲスト</button>
+      </div>
+
+      <form id="formLogin" data-panel="login" autocomplete="on">
+        <div class="field"><label for="loginName">ユーザー名</label><input class="input" id="loginName" name="username" autocomplete="username" maxlength="16" spellcheck="false" required></div>
+        <div class="field"><label for="loginPw">パスワード</label><input class="input" id="loginPw" name="password" type="password" autocomplete="current-password" required></div>
+        <button class="btn btn-light btn-lg btn-block" type="submit">ログイン</button>
+      </form>
+
+      <form id="formRegister" data-panel="register" autocomplete="on" hidden>
+        <div class="field">
+          <label for="regName">ユーザー名（ランキングに表示されます）</label>
+          <input class="input" id="regName" name="username" autocomplete="username" maxlength="16" spellcheck="false" placeholder="例: 淫夢潜" required>
+          <div class="hint">1〜16文字。<b>本名・メールアドレス・電話番号は入れないでください</b>。<button type="button" class="small-link" id="randomName">おまかせ名を入れる</button></div>
+        </div>
+        <div class="field"><label for="regPw">パスワード（8文字以上）</label><input class="input" id="regPw" name="new-password" type="password" autocomplete="new-password" minlength="8" required></div>
+        <div class="hint" style="margin:-4px 0 12px;text-align:left">⚠ パスワードを忘れると<b>再設定できません</b>（その場合は別の名前で新規登録してください）。</div>
+        <button class="btn btn-light btn-lg btn-block" type="submit">登録して始める</button>
+      </form>
+
+      <div id="panelGuest" data-panel="guest" hidden>
+        <p class="note" style="margin-bottom:14px">ゲストは点数がランキングに載りません（点数もサーバーへ送られません）。ランキングの閲覧はできます。</p>
+        <button class="btn btn-light btn-lg btn-block" id="guestButton" type="button">ゲストで遊ぶ</button>
+      </div>
+
+      <div class="auth-msg" id="authMsg" role="alert"></div>
+    </div>
+
+    <!-- ログイン済み / ゲスト選択後 -->
+    <div id="readyView" hidden>
+      <div class="who" id="whoBox"></div>
+      <button class="btn btn-light btn-lg" id="startButton" type="button">システム起動</button>
+      <div><button class="linkish" id="switchAccount" type="button">アカウントを切り替える</button><button class="linkish" id="readySettings" type="button">設定・アカウント削除</button></div>
+    </div>
+
+    <div class="start-status" id="startupStatus">待機中</div>
+    <div class="error" id="errorBox"></div>
+  </div>
+</div>
+
+<!-- ===== 設定パネル ===== -->
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<aside class="settings-panel" id="settingsPanel" tabindex="-1" aria-labelledby="settingsTitle" aria-hidden="true">
+  <div class="settings-head">
+    <h2 id="settingsTitle">HANT_INMU_PLAY 設定</h2>
+    <button type="button" class="icon-btn" id="settingsClose" aria-label="閉じる">×</button>
+  </div>
+  <div class="settings-body">
+    <div class="switch-row"><input type="checkbox" role="switch" id="safetyToggle"><label for="safetyToggle">安全設定</label></div>
+    <p class="note">ON: ポーズ検出時は安全な子猫画像。OFF: ポーズ検出時は「INMU KING」画像。未検出時はどちらも元の画像。</p>
+
+    <div class="switch-row"><input type="checkbox" role="switch" id="muteToggle"><label for="muteToggle">ミュート</label></div>
+    <p class="note">ONでもポーズ検出・スコア・ランキング処理は継続します。</p>
+
+    <div class="field">
+      <label for="levelSelect">ポーズ判定の甘さ</label>
+      <select class="input" id="levelSelect">
+        <option value="easy">やさしい（おすすめ）</option>
+        <option value="normal">ふつう</option>
+        <option value="strict">きびしい（従来どおり）</option>
+      </select>
+      <div class="hint">うまく反応しないときは「やさしい」に。判定デバッグで状態を確認できます。</div>
+    </div>
+
+    <h3>アカウント</h3>
+    <div class="account-box" id="settingsAccount">ゲスト（ランキング非参加）</div>
+    <div class="stack">
+      <button class="btn btn-outline-light" id="rankingRefreshButton" type="button">ランキング更新</button>
+      <button class="btn btn-outline-light" id="logoutButton" type="button" hidden>ログアウト</button>
+    </div>
+    <div class="danger-zone" id="deleteZone" hidden>
+      <div class="field" style="margin-bottom:8px"><label for="deletePw">アカウント削除（パスワードが必要）</label><input class="input" id="deletePw" type="password" autocomplete="current-password" placeholder="パスワード"></div>
+      <button class="btn btn-danger btn-block" id="deleteButton" type="button">アカウントを削除する</button>
+    </div>
+
+    <h3>操作</h3>
+    <div class="stack">
+      <button class="btn btn-outline-info" id="debugSettingsButton" type="button">判定デバッグ表示切替</button>
+      <button class="btn btn-danger" id="settingsStopButton" type="button" disabled>システム停止</button>
+    </div>
+
+    <details class="privacy">
+      <summary>プライバシーについて</summary>
+      <p><b>映像:</b> カメラ映像・骨格の座標は、この端末のブラウザ内で判定するだけで、どこにも送信・保存しません。判定用のAIモデルもこのサイトから配信しており、外部サービスへ接続しません。</p>
+      <p><b>サーバーに送るもの:</b> ログイン情報、点数、（サーバー側で記録する）最終アクセス時刻のみ。パスワードは、この端末で強力にハッシュ化した値だけを送ります。</p>
+      <p><b>保存しないもの:</b> IPアドレス、端末情報、位置情報。長期間アクセスのないデータは自動で削除されます。</p>
+      <p><b>注意:</b> ユーザー名はランキングに公開されます。本名やメールアドレスは使わないでください。</p>
+    </details>
+  </div>
+</aside>
+
+<div class="app-shell">
+  <div class="panel">
+    <div class="screen" id="screen">
+      <div class="background-image" id="backgroundImage"></div>
+
+      <header class="topbar">
+        <div class="service-badge">各駅停車</div>
+        <div class="route-title">小田急線</div>
+        <div class="next-station">
+          つぎは
+          <span class="station-code">OH<br><small>---</small></span>
+          下北沢
+        </div>
+        <button class="settings-button" id="settingsOpen" type="button" aria-controls="settingsPanel" aria-label="設定">⚙</button>
+      </header>
+
+      <section class="announcement">
+        <div class="destination">
+          <span class="label">行き先</span>
+          <span class="name">下北沢</span>
+        </div>
+      </section>
+
+      <section class="ranking-area">
+        <div class="ranking-head">ONLINE RANKING TOP 10</div>
+        <div class="score-chip" id="scoreChip">
+          <div class="caption">SCORE</div>
+          <div class="value" id="scoreText">0</div>
+        </div>
+        <div class="ranking-bar" id="rankingBar"></div>
+        <div class="status-chip" id="statusChip">未起動 / WAIT</div>
+      </section>
+
+      <section class="visual-area">
+        <div class="route-strip"></div>
+        <!-- 動画削除イベント: うっすら → はっきり。完全にはっきりした時にポーズ中だと削除される -->
+        <div class="yt-icon fade" id="ytIcon" aria-hidden="true">
+          <svg viewBox="0 0 160 112" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="154" height="106" rx="32" fill="#f00" stroke="#fff" stroke-width="4"/><path d="M63 33 L113 56 L63 79Z" fill="#fff"/></svg>
+        </div>
+        <div class="camera-preview">
+          <div class="camera-caption">CAMERA（端末内のみ）</div>
+          <video id="camera" autoplay muted playsinline></video>
+          <canvas id="poseCanvas"></canvas>
+        </div>
+      </section>
+
+      <section class="route-box">
+        <div class="route-label">次のご案内<br><span style="font-size:14px">NEXT</span></div>
+        <div class="route-card">
+          <div class="small">この画面の状態</div>
+          <div class="big" id="stateText">発見前</div>
+          <div class="line">HANT INMU PLAY 8</div>
+        </div>
+        <div class="route-card">
+          <div class="small">ポーズ判定</div>
+          <div class="big" id="poseText">FALSE</div>
+          <div class="line" id="confidenceText">READY</div>
+        </div>
+      </section>
+
+      <div class="toast-pill" id="toast" role="status"></div>
+      <div class="event-banner" id="eventBanner" aria-live="assertive">
+        <div class="event-card">
+          <div class="t1">⚠ 動画削除イベント ⚠</div>
+          <div class="t2">この動画は削除されました</div>
+          <div class="t3" id="eventPenalty">-114514</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="control-strip">
+    <div class="row-gap">
+      <button class="btn btn-secondary btn-sm" id="toggleDebug" disabled>判定デバッグ: OFF</button>
+      <button class="btn btn-secondary btn-sm" id="muteButton" disabled>音声: ON</button>
+      <button class="btn btn-secondary btn-sm" id="stopButton" disabled>システム停止</button>
+    </div>
+    <div class="connection-status" id="connectionStatus">ランキング: 待機中</div>
+  </div>
+
+  <div class="debug" id="debugPanel">
+    <div><strong>判定条件</strong>：V4ベース。左右手首・肘・肩・頭部位置・腕角度を使用し、判定を少し甘くしています（設定で「きびしい」に戻せます）。</div>
+    <div id="debugText">システム起動後に判定情報を表示します。</div>
+  </div>
+</div>
+
+<audio id="music" preload="none"></audio>
+
+<script>
+/* file:// で直接開くと ES モジュールが動かないため、理由を表示する（通常の読み込みでは何もしない） */
+if (location.protocol === 'file:') {
+  var m = document.getElementById('authMsg'), st = document.getElementById('startupStatus');
+  if (m) { m.className = 'auth-msg show err'; m.textContent = 'index.html をダブルクリックでは動きません。同梱の start-local.bat を実行するか、GitHub Pagesの公開URLで開いてください。'; }
+  if (st) st.textContent = 'ローカルサーバー経由で開いてください（start-local.bat）';
+}
+</script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

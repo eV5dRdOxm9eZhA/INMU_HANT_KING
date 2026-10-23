@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9f1"/><stop offset="1" stop-color="#fff6d9"/></linearGradient>
+    <radialGradient id="cheek" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ff9db3" stop-opacity=".75"/><stop offset="1" stop-color="#ff9db3" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g fill="#fff" opacity=".9"><ellipse cx="260" cy="170" rx="110" ry="42"/><ellipse cx="340" cy="150" rx="80" ry="40"/><ellipse cx="1300" cy="230" rx="130" ry="46"/><ellipse cx="1390" cy="205" rx="80" ry="38"/></g>
+  <g fill="#ffc9d9"><circle cx="150" cy="620" r="14"/><circle cx="1460" cy="560" r="18"/><circle cx="1180" cy="780" r="12"/><circle cx="420" cy="760" r="16"/></g>
+  <!-- 床 -->
+  <ellipse cx="800" cy="840" rx="520" ry="56" fill="#f2d9a6" opacity=".7"/>
+  <!-- しっぽ -->
+  <path d="M1060 760 C1250 770 1330 640 1250 520 C1230 490 1190 505 1205 540 C1250 620 1190 700 1040 700Z" fill="#f4a64f"/>
+  <path d="M1250 520 C1235 495 1195 508 1207 540 C1215 560 1228 575 1240 580Z" fill="#fff"/>
+  <!-- 体 -->
+  <ellipse cx="800" cy="690" rx="270" ry="170" fill="#f4a64f"/>
+  <ellipse cx="800" cy="735" rx="170" ry="120" fill="#fff3e0"/>
+  <path d="M700 560 q14 55 -6 90 M900 560 q-14 55 6 90 M800 545 q0 50 0 85" stroke="#d9852a" stroke-width="16" stroke-linecap="round" fill="none"/>
+  <!-- 前足 -->
+  <ellipse cx="690" cy="815" rx="62" ry="40" fill="#fff3e0"/><ellipse cx="910" cy="815" rx="62" ry="40" fill="#fff3e0"/>
+  <path d="M668 820 v14 M692 824 v14 M888 824 v14 M912 820 v14" stroke="#e7c9a0" stroke-width="5" stroke-linecap="round"/>
+  <!-- 頭 -->
+  <path d="M575 330 L560 150 L720 255Z" fill="#f4a64f"/><path d="M1025 330 L1040 150 L880 255Z" fill="#f4a64f"/>
+  <path d="M598 285 L590 192 L675 250Z" fill="#ffb3c4"/><path d="M1002 285 L1010 192 L925 250Z" fill="#ffb3c4"/>
+  <ellipse cx="800" cy="400" rx="260" ry="215" fill="#f4a64f"/>
+  <path d="M800 190 q-22 50 0 100 q22 -50 0 -100Z M722 215 q-10 38 12 75 q12 -42 -12 -75Z M878 215 q10 38 -12 75 q-12 -42 12 -75Z" fill="#d9852a"/>
+  <ellipse cx="800" cy="468" rx="130" ry="95" fill="#fff3e0"/>
+  <!-- 目 -->
+  <ellipse cx="710" cy="395" rx="48" ry="58" fill="#2b2118"/><ellipse cx="890" cy="395" rx="48" ry="58" fill="#2b2118"/>
+  <ellipse cx="710" cy="395" rx="40" ry="50" fill="#5b3a1d"/><ellipse cx="890" cy="395" rx="40" ry="50" fill="#5b3a1d"/>
+  <ellipse cx="710" cy="400" rx="28" ry="38" fill="#120d09"/><ellipse cx="890" cy="400" rx="28" ry="38" fill="#120d09"/>
+  <circle cx="724" cy="375" r="15" fill="#fff"/><circle cx="904" cy="375" r="15" fill="#fff"/><circle cx="700" cy="418" r="7" fill="#fff"/><circle cx="880" cy="418" r="7" fill="#fff"/>
+  <!-- ほっぺ -->
+  <circle cx="610" cy="470" r="52" fill="url(#cheek)"/><circle cx="990" cy="470" r="52" fill="url(#cheek)"/>
+  <!-- 鼻と口 -->
+  <path d="M770 450 h60 l-30 34Z" fill="#ff8aa6"/>
+  <path d="M800 484 v28 M800 512 q-30 38 -64 14 M800 512 q30 38 64 14" stroke="#7a4a2a" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <!-- ひげ -->
+  <g stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".95"><path d="M650 490 L520 465 M650 510 L515 520 M650 530 L530 575"/><path d="M950 490 L1080 465 M950 510 L1085 520 M950 530 L1070 575"/></g>
+  <!-- ハート -->
+  <g fill="#ff7b9c"><path d="M1230 300 c-25 -35 -75 -5 -45 35 l45 42 45 -42 c30 -40 -20 -70 -45 -35Z" transform="scale(.9) translate(120 20)"/><path d="M330 330 c-18 -26 -55 -4 -33 26 l33 31 33 -31 c22 -30 -15 -52 -33 -26Z" transform="translate(-40 -10)"/></g>
+</svg>

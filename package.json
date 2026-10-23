@@ -1,0 +1,16 @@
+{
+  "name": "hant-inmu-play",
+  "version": "9.0.0",
+  "private": true,
+  "type": "module",
+  "description": "HANT_INMU_PLAY 公開版（GitHub Pages + Cloudflare Workers）",
+  "scripts": {
+    "test": "node tests/pose.test.mjs && node --no-warnings tests/firebase-api.test.mjs && node --no-warnings tests/worker.test.mjs",
+    "vendor": "node scripts/fetch-vendor.mjs",
+    "build": "node scripts/build-site.mjs",
+    "start": "node scripts/serve.mjs"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "~0.10.18"
+  }
+}

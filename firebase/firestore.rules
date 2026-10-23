@@ -1,0 +1,62 @@
+rules_version = '2';
+
+// HANT_INMU_PLAY  Firestore セキュリティルール
+// Firebaseコンソール → Firestore Database → ルール に貼り付けて「公開」する。
+//
+// 方針
+//  - 点数ドキュメント players/{uid} は「本人（そのuid）だけ」が書ける。
+//  - 加点は「前回の更新からの経過時間(最大1時間) × 125点/秒 + 50点」まで。減点は自由（動画削除イベント用）。
+//  - 名前と nameKey（=ログイン用メールの元）は作成時に確定し、以後変更できない。
+//    nameKey は本人のログインメール(`<nameKey>@hant-inmu.example`)と一致していなければ作れない。
+//  - 一覧の読み取りは「最大10件」まで（ランキング用）。全員分のダンプはできない。
+//  - 上記以外はすべて拒否。
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // 期限(expireAt)は「今から約180日後」だけ許可。Firestore の TTL ポリシーで自動削除に使う。
+    function validExpire(d) {
+      return d.expireAt is timestamp
+        && d.expireAt > request.time + duration.value(179, 'd')
+        && d.expireAt < request.time + duration.value(181, 'd');
+    }
+
+    // 加点の上限チェック（整数だけで比較: 点差×1000 <= 経過ms×125 + 50000）
+    function gainOk(oldDoc, newDoc) {
+      let dt = request.time.toMillis() - oldDoc.ts.toMillis();
+      let capped = dt > 3600000 ? 3600000 : (dt < 0 ? 0 : dt);
+      return (newDoc.score - oldDoc.score) * 1000 <= capped * 125 + 50000;
+    }
+
+    match /players/{uid} {
+      allow get: if isOwner(uid);
+      allow list: if request.query.limit <= 10;
+
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['name', 'nameKey', 'score', 'ts', 'expireAt'])
+        && request.resource.data.keys().hasAll(['name', 'nameKey', 'score', 'ts', 'expireAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 1
+        && request.resource.data.name.size() <= 64
+        && request.resource.data.nameKey is string
+        && request.auth.token.email == request.resource.data.nameKey + '@hant-inmu.example'
+        && request.resource.data.score == 0
+        && request.resource.data.ts == request.time
+        && validExpire(request.resource.data);
+
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['score', 'ts', 'expireAt'])
+        && request.resource.data.score is int
+        && request.resource.data.score >= -1000000000
+        && request.resource.data.score <= 1000000000
+        && request.resource.data.ts == request.time
+        && validExpire(request.resource.data)
+        && gainOk(resource.data, request.resource.data);
+
+      allow delete: if isOwner(uid);
+    }
+  }
+}

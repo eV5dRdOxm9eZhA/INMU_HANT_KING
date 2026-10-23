@@ -1,0 +1,24 @@
+name = "hant-inmu-api"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# GitHub Pages の「オリジン」(パスは含めない)。複数ならカンマ区切り。例: https://example-user.github.io
+ALLOWED_ORIGINS = "https://CHANGE-ME.github.io"
+ALLOW_LOCALHOST = "0"
+# 任意: MAX_ACCOUNTS = "50000"   REG_PER_HOUR = "60"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "hant-inmu"
+database_id = "CHANGE-ME-D1-DATABASE-ID"   # `wrangler d1 create hant-inmu` の出力をコピー
+
+# 180日アクセスのないアカウントと期限切れセッションを毎日掃除
+[triggers]
+crons = ["17 18 * * *"]
+
+# アクセスログ/トレースを保存しない（IPが運営側ログに残らないようにする）
+[observability]
+enabled = false
+
+# PEPPER は秘密なのでここには書かない:  npx wrangler secret put PEPPER

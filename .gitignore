@@ -1,0 +1,6 @@
+node_modules/
+vendor/
+_site/
+.wrangler/
+.dev.vars
+.DS_Store
