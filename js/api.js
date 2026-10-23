@@ -3,7 +3,7 @@
 //
 // バックエンドは差し替え可能で、どれも同じ形のオブジェクトを返す:
 //   { enabled, limits:{submitMs,rankingPollMs}, restore(), register(name,pw), login(name,pw),
-//     score(value,{keepalive,bonus}), ranking(), logout(), deleteAccount(name,pw) }
+//     score(value,{keepalive,bonus,tokusei}), ranking(), logout(), deleteAccount(name,pw) }
 // 設定は config.js の window.HANT_CONFIG で選ぶ（backend:'firebase' | 'worker'）。
 const enc = new TextEncoder();
 export const PBKDF2_ITER = 150000;
@@ -110,7 +110,7 @@ export function createWorkerApi(base, { fetchImpl, storage } = {}) {
     },
     async register(name, pw) { return accept(await call('POST', '/api/register', { name, pw: await deriveSecret(pw, name) })); },
     async login(name, pw) { return accept(await call('POST', '/api/login', { name, pw: await deriveSecret(pw, name) })); },
-    score(score, opts) { return call('POST', '/api/score', opts && opts.bonus ? { score, bonus: true } : { score }, opts); },
+    score(score, opts) { return call('POST', '/api/score', { score, ...(opts && opts.bonus ? { bonus: true } : {}), ...(opts && opts.tokusei ? { tokusei: true } : {}) }, opts); },
     ranking() { return call('GET', '/api/ranking'); },
     async logout() { try { if (token) await call('POST', '/api/logout', {}); } finally { token = ''; store.del('hant8_token'); } },
     async deleteAccount(name, pw) { await call('POST', '/api/delete', { pw: await deriveSecret(pw, name) }); token = ''; store.del('hant8_token'); },

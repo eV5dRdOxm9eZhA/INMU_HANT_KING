@@ -21,6 +21,7 @@ const CFG = Object.freeze({
   visionModule: new URL('../vendor/mediapipe/vision_bundle.mjs', import.meta.url).href,
   wasmDir: new URL('../vendor/mediapipe/wasm', import.meta.url).href,
   modelUrl: new URL('../vendor/models/pose_landmarker_full.task', import.meta.url).href,
+  modelLiteUrl: new URL('../vendor/models/pose_landmarker_lite.task', import.meta.url).href,
   // 動画削除イベント
   del: Object.freeze({
     warnMs: FAST ? 3000 : 1500, // ?fast はテストしやすいよう長め          // YouTubeアイコンが「うっすら→はっきり」になるまで
@@ -69,10 +70,12 @@ let submitBusy = false, rankingBusy = false, authLostNotified = false;
 const stability = new Stability(POSE_TIMING.stableWindow, POSE_TIMING.stableRequired);
 let safetyMode = store.get('hant8_safety') === '1';
 let muted = store.get('hant8_muted') === '1';
+const COARSE = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches); // タッチ端末（スマホ・タブレット）
+let lite = store.get('hant8_lite') === null ? COARSE : store.get('hant8_lite') === '1'; // 軽量モード: スマホは既定でON
 let level = ['strict', 'normal', 'easy'].includes(store.get('hant8_level')) ? store.get('hant8_level') : 'easy';
 
 const evt = { phase: 'idle', nextInMs: 0, elapsedMs: 0, notPoseMs: 0, poseRunMs: 0, forceMs: 0 };
-let runStartScore = 0, pendingBonus = false, sceneIndex = -1;
+let runStartScore = 0, pendingBonus = false, pendingTokusei = false, sceneIndex = -1, inferMs = 0, delegateUsed = '-';
 const rand = ([a, b]) => a + Math.random() * (b - a);
 const nextGap = () => Math.min(CFG.del.gapMaxMs, CFG.del.gapMinMs - Math.log(1 - Math.random()) * CFG.del.gapMeanExtraMs);
 
@@ -87,7 +90,8 @@ function showToast(text, ms = 2600) {
   toastEl.textContent = text; toastEl.classList.add('show');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), ms);
 }
-function showScore() { scoreText.textContent = String(Math.round(score)); }
+const tokuseiButton = $('tokuseiButton');
+function showScore() { scoreText.textContent = String(Math.round(score)); tokuseiButton.hidden = !(running && Math.round(score) < 0); }
 
 /* ---------- 背景 ---------- */
 const preloaded = [];
@@ -97,12 +101,14 @@ const bgFront = backgroundImage, bgBack = bgFront.cloneNode(false);
 bgBack.removeAttribute('id'); bgBack.style.opacity = '0'; bgFront.parentNode.insertBefore(bgBack, bgFront.nextSibling);
 bgFront.style.transition = bgBack.style.transition = 'opacity .9s ease';
 let bgShown = '';
-function setBackground(url, instant = true) {
+function setBackground(url, instant = true, ms = 900) {
   if (url === bgShown) return; bgShown = url;
   const img = url ? `url("${url}")` : '';
-  if (instant) { bgFront.style.transition = bgBack.style.transition = 'none'; bgFront.style.backgroundImage = img; bgBack.style.opacity = '0'; void bgFront.offsetWidth; bgFront.style.transition = bgBack.style.transition = 'opacity .9s ease'; return; }
+  const tr = `opacity ${ms}ms ease`;
+  if (instant) { bgFront.style.transition = bgBack.style.transition = 'none'; bgFront.style.backgroundImage = img; bgBack.style.opacity = '0'; void bgFront.offsetWidth; bgFront.style.transition = bgBack.style.transition = tr; return; }
+  bgFront.style.transition = bgBack.style.transition = tr;
   bgBack.style.backgroundImage = img; bgBack.style.opacity = '1';
-  setTimeout(() => { if (bgShown !== url) return; bgFront.style.transition = 'none'; bgFront.style.backgroundImage = img; bgBack.style.opacity = '0'; void bgFront.offsetWidth; bgFront.style.transition = 'opacity .9s ease'; }, 950);
+  setTimeout(() => { if (bgShown !== url) return; bgFront.style.transition = 'none'; bgFront.style.backgroundImage = img; bgBack.style.opacity = '0'; void bgFront.offsetWidth; bgFront.style.transition = tr; }, ms + 50);
 }
 function sceneUrl() {
   sceneIndex = Math.floor(Math.max(0, music.currentTime) / SCENE_SEC) % SCENES.length; // SCENE_SEC秒ごとに次の画像。最後まで行ったら先頭に戻る
@@ -112,7 +118,7 @@ function currentImageUrl() { if (!systemOn) return ASSET.before; return safetyMo
 function updateScene() { if (systemOn && !safetyMode) { const u = sceneUrl(); if (u !== bgShown) setBackground(u, false); } }
 
 function applyDisplayState() {
-  setBackground(currentImageUrl(), !systemOn || safetyMode);
+  setBackground(currentImageUrl(), !systemOn || safetyMode, 220); // ポーズ検出の切替はすばやく（曲の途中の場面転換だけゆっくり）
   if (!running) { statusChip.className = 'status-chip'; statusChip.textContent = '未起動 / WAIT'; stateText.textContent = '発見前'; return; }
   if (evt.phase === 'warn') { statusChip.className = 'status-chip warn'; statusChip.textContent = '削除警告!! / WARN'; stateText.textContent = '削除警告'; return; }
   if (systemOn) {
@@ -180,7 +186,7 @@ function updateDebug(result, st) {
   debugText.innerHTML = '';
   const parts = [['UP', result.up], ['ELBOW', result.elbowOut], ['HEAD', result.head], ['BENT', result.bent], ['SPAN', result.span]];
   parts.forEach(([k, v], i) => { debugText.append(`${i ? ' / ' : ''}${k}=`); const b = document.createElement('strong'); b.textContent = ok(v); debugText.append(b); });
-  debugText.append(` / ${result.reason}`);
+  debugText.append(` / ${result.reason} / 判定 ${Math.round(inferMs)}ms(${delegateUsed}${lite ? ',軽量' : ''})`);
 }
 // 削除イベント中（アイコン表示中）と終了後1秒は、実際にやめていても「ポーズ中」扱い。点数加算と曲の再生が途切れないようにするためで、回避判定には使わない。
 const poseOn = () => stableValid || evt.phase === 'warn' || evt.forceMs > 0;
@@ -266,7 +272,7 @@ async function submitScore(force, keepalive = false) {
   if (!force && value === lastSubmittedScore) return;
   submitBusy = true;
   try {
-    const bonus = pendingBonus; const r = await api.score(value, { keepalive, bonus }); if (bonus) pendingBonus = false;
+    const bonus = pendingBonus, tokusei = pendingTokusei; const r = await api.score(value, { keepalive, bonus, tokusei }); if (bonus) pendingBonus = false; if (tokusei) pendingTokusei = false;
     lastSubmittedScore = r.score; account.score = r.score;
     if (r.clamped) { score = r.score; showScore(); } // サーバー側の加点速度上限に合わせる
     setConnection(r.rank ? `あなたは ${r.rank}位 / ${new Date().toLocaleTimeString()} 更新` : `${new Date().toLocaleTimeString()} 更新`);
@@ -306,16 +312,24 @@ async function createPoseLandmarker() {
   try { vision = await import(CFG.visionModule); }
   catch { throw new Error('判定エンジン(vendor/mediapipe)が見つかりません。README「デプロイ」の手順でビルドしてください。'); }
   const fileset = await vision.FilesetResolver.forVisionTasks(CFG.wasmDir);
+  const modelUrl = lite ? CFG.modelLiteUrl : CFG.modelUrl;
   const options = {
-    baseOptions: { modelAssetPath: CFG.modelUrl, delegate: 'GPU' }, runningMode: 'VIDEO', numPoses: 1,
+    baseOptions: { modelAssetPath: modelUrl, delegate: 'GPU' }, runningMode: 'VIDEO', numPoses: 1,
     minPoseDetectionConfidence: CFG.minPoseDetectionConfidence, minPosePresenceConfidence: CFG.minPosePresenceConfidence, minTrackingConfidence: CFG.minTrackingConfidence,
   };
-  try { poseLandmarker = await vision.PoseLandmarker.createFromOptions(fileset, options); }
-  catch (e) { console.warn('GPU delegate failed; fallback CPU', e); poseLandmarker = await vision.PoseLandmarker.createFromOptions(fileset, { ...options, baseOptions: { modelAssetPath: CFG.modelUrl, delegate: 'CPU' } }); }
+  const make = (url, delegate) => vision.PoseLandmarker.createFromOptions(fileset, { ...options, baseOptions: { modelAssetPath: url, delegate } });
+  // GPU → CPU の順に試す。軽量モデルが見つからないときは通常モデルに戻す。
+  try { poseLandmarker = await make(modelUrl, 'GPU'); delegateUsed = 'GPU'; }
+  catch (e) {
+    console.warn('GPU delegate failed; fallback', e);
+    delegateUsed = 'CPU';
+    try { poseLandmarker = await make(modelUrl, 'CPU'); }
+    catch (e2) { if (!lite) throw e2; console.warn('lite model failed; fallback to full', e2); poseLandmarker = await make(CFG.modelUrl, 'CPU'); }
+  }
 }
 async function startCamera() {
   startupStatus.textContent = 'カメラの許可を待っています…（映像は端末内でのみ処理されます）';
-  stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }, audio: false });
+  stream = await navigator.mediaDevices.getUserMedia({ video: lite ? { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 30, max: 30 }, facingMode: 'user' } : { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }, audio: false });
   camera.srcObject = stream; await camera.play();
 }
 
@@ -325,7 +339,7 @@ function frame(now) {
   if (!poseLandmarker || camera.readyState < 2) return;
   resizeCanvas(); if (camera.currentTime === lastVideoTime) return; lastVideoTime = camera.currentTime;
   try {
-    const result = poseLandmarker.detectForVideo(camera, now); const lm = result?.landmarks?.[0] || null;
+    const t0 = performance.now(); const result = poseLandmarker.detectForVideo(camera, now); const lm = result?.landmarks?.[0] || null; inferMs = inferMs ? inferMs * 0.8 + (performance.now() - t0) * 0.2 : performance.now() - t0;
     if (!lm) { const st = stability.push(false); stableValid = stability.stable; drawSkeleton(null, null); updateDebug(null, st); updateState(now); return; }
     const c = classifyPose(lm, poseLevel()); const st = stability.push(c.valid); stableValid = stability.stable;
     drawSkeleton(lm, c); updateDebug(c, st); updateState(now);
@@ -337,7 +351,7 @@ async function startSystem() {
   // 音の再生許可はユーザー操作の直後でないと取れないので、最初に済ませる
   try {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume?.();
-    if (!music.getAttribute('src')) music.src = ASSET.sound;
+    if (!music.getAttribute('src')) { music.src = ASSET.sound; music.preload = 'auto'; music.load(); } // 先に読み込んでおき、ポーズ検出と同時に鳴らせるようにする
     { const p = music.play(); if (p) p.then(() => { if (!systemOn) { music.pause(); music.currentTime = 0; } }).catch(() => {}); }
   } catch { /* 音なしでも続行 */ }
   try {
@@ -369,7 +383,7 @@ function stopSystem() {
   onSince = 0; offSince = 0; stability.reset(); stableValid = false; systemOn = false;
   resetEvent(true); eventBanner.classList.remove('show'); toastEl.classList.remove('show');
   if (wasRunning && account) { account.score = Math.round(score); submitScore(true); }
-  applyDisplayState(); poseText.textContent = 'FALSE'; confidenceText.textContent = 'READY';
+  showScore(); applyDisplayState(); poseText.textContent = 'FALSE'; confidenceText.textContent = 'READY';
   toggleDebug.disabled = true; muteButton.disabled = true; stopButton.disabled = true; settingsStopButton.disabled = true; startButton.disabled = false;
   startupStatus.textContent = '停止しました'; renderWho(); overlay.style.display = 'grid'; closeSettings();
 }
@@ -441,6 +455,8 @@ function closeSettings() { panel.classList.remove('open'); backdrop.classList.re
 $('settingsOpen').addEventListener('click', openSettings); $('readySettings').addEventListener('click', openSettings); $('settingsClose').addEventListener('click', closeSettings); backdrop.addEventListener('click', closeSettings);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && panel.classList.contains('open')) closeSettings(); });
 
+$('liteToggle').checked = lite;
+$('liteToggle').addEventListener('change', () => { lite = $('liteToggle').checked; store.set('hant8_lite', lite ? '1' : '0'); showToast('次回の「システム起動」から反映されます'); });
 safetyToggle.checked = safetyMode; muteToggle.checked = muted; levelSelect.value = level;
 safetyToggle.addEventListener('change', () => { safetyMode = safetyToggle.checked; store.set('hant8_safety', safetyMode ? '1' : '0'); applyDisplayState(); });
 levelSelect.addEventListener('change', () => { level = levelSelect.value; store.set('hant8_level', level); });
@@ -454,6 +470,15 @@ toggleDebug.addEventListener('click', () => {
 });
 debugSettingsButton.addEventListener('click', () => toggleDebug.click());
 rankingRefreshButton.addEventListener('click', fetchRanking);
+// 徳政令カード: マイナスの点数を0に戻す
+tokuseiButton.addEventListener('click', () => {
+  if (!running || Math.round(score) >= 0) return;
+  const debt = -Math.round(score);
+  score = 0; showScore(); pendingTokusei = true;
+  showToast(`📜 徳政令発動！ 借金 ${debt} 点がチャラになりました`, 4000);
+  scoreChip.classList.add('bonus'); setTimeout(() => scoreChip.classList.remove('bonus'), 1800);
+  if (account) { account.score = 0; submitScore(true); }
+});
 startButton.addEventListener('click', startSystem); stopButton.addEventListener('click', stopSystem); settingsStopButton.addEventListener('click', stopSystem);
 
 /* ---------- ページを離れる/隠れるとき: 点数を確定送信 ---------- */

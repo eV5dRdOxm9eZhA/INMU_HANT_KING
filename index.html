@@ -34,7 +34,10 @@
       </div>
 
       <form id="formLogin" data-panel="login" autocomplete="on">
-        <div class="field"><label for="loginName">ユーザー名</label><input class="input" id="loginName" name="username" autocomplete="username" maxlength="16" spellcheck="false" required></div>
+        <div class="switch-row"><input type="checkbox" role="switch" id="liteToggle"><label for="liteToggle">軽量モード（スマホ向け）</label></div>
+    <p class="note">判定モデルと映像を軽くして、反応を速くします（スマホはON推奨）。次回の「システム起動」から反映されます。</p>
+
+    <div class="field"><label for="loginName">ユーザー名</label><input class="input" id="loginName" name="username" autocomplete="username" maxlength="16" spellcheck="false" required></div>
         <div class="field"><label for="loginPw">パスワード</label><input class="input" id="loginPw" name="password" type="password" autocomplete="current-password" required></div>
         <button class="btn btn-light btn-lg btn-block" type="submit">ログイン</button>
       </form>
@@ -194,6 +197,7 @@
 
   <div class="control-strip">
     <div class="row-gap">
+      <button class="btn btn-sm btn-tokusei" id="tokuseiButton" hidden>📜 徳政令カード（マイナスを0に）</button>
       <button class="btn btn-secondary btn-sm" id="toggleDebug" disabled>判定デバッグ: OFF</button>
       <button class="btn btn-secondary btn-sm" id="muteButton" disabled>音声: ON</button>
       <button class="btn btn-secondary btn-sm" id="stopButton" disabled>システム停止</button>

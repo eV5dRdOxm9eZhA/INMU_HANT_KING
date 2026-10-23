@@ -8,7 +8,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, '_site');
 rmSync(out, { recursive: true, force: true }); mkdirSync(out, { recursive: true });
 
-for (const need of ['vendor/mediapipe/vision_bundle.mjs', 'vendor/mediapipe/wasm', 'vendor/models/pose_landmarker_full.task']) {
+for (const need of ['vendor/mediapipe/vision_bundle.mjs', 'vendor/mediapipe/wasm', 'vendor/models/pose_landmarker_full.task', 'vendor/models/pose_landmarker_lite.task']) {
   if (!existsSync(join(root, need))) { console.error(`${need} がありません。先に \`npm run vendor\` を実行してください。`); process.exit(1); }
 }
 for (const p of ['index.html', 'css', 'js', 'assets', 'vendor']) cpSync(join(root, p), join(out, p), { recursive: true });

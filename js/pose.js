@@ -58,7 +58,7 @@ export function diamondThresholds(s) {
 }
 
 export const POSE_TIMING = Object.freeze({
-  onDelayMs: 250,      // 元350 → 成立までの待ちを短縮
+  onDelayMs: 150,      // 元350 → 成立までの待ちを短縮（反応を速く）
   offDelayMs: 800,     // 元550 → 一瞬の取りこぼしで途切れない
   stableWindow: 6,
   stableRequired: 2,

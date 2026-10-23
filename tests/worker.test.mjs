@@ -135,6 +135,19 @@ await t('完走ボーナス: bonus:true なら まとまった加点を1回だ�
   await a.score(0); // 後続のランキング検証に影響しないよう戻す
 });
 
+await t('徳政令カード: マイナス→ちょうど0だけ許可（0を超える加点・フラグ無しは従来どおり制限）', async () => {
+  setNow(T0 + 50000);
+  const a = api(); await a.register('Debtor', 'debtor-password-1'); setNow(T0 + 50010);
+  let r = await a.score(-114514); assert.equal(r.score, -114514);
+  setNow(T0 + 50011);
+  r = await a.score(0); assert.equal(r.clamped, true, 'フラグ無しの回復は加点速度で制限される');
+  r = await a.score(0, { tokusei: true }); assert.equal(r.score, 0); assert.equal(r.clamped, false);
+  r = await a.score(5000, { tokusei: true }); assert.equal(r.clamped, true, '0を超える加点には使えない');
+  const b = api(); await b.register('Plusman', 'plus-password-1'); setNow(T0 + 50030); await b.score(100);
+  setNow(T0 + 50031); r = await b.score(0, { tokusei: true }); assert.equal(r.score, 0);
+  setNow(T0 + 50032); await a.score(0);
+});
+
 await t('ランキング: 上位10件・点数降順・名前と点数だけ（IDや時刻を返さない）', async () => {
   setNow(T0 + 9000);
   for (let i = 0; i < 12; i++) {

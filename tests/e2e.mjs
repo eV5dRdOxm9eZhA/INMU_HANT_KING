@@ -198,6 +198,19 @@ try {
     assert.ok(row.score < -100000, `サーバー側の点数が減っていない: ${row.score}`);
     assert.equal(await pg.evaluate(() => Math.round(Number(document.getElementById('ytIcon').style.opacity))), 0, '被弾後アイコンが消える');
   });
+  await t('徳政令カード: マイナスのときだけボタンが出て、押すと0点に戻り、サーバーにも反映される', async () => {
+    await pg.waitForFunction(() => Number(document.getElementById('scoreText').textContent) < 0);
+    assert.equal(await pg.isVisible('#tokuseiButton'), true, 'マイナスならボタンが見える');
+    await pg.evaluate(() => { window.__hant8.evt.nextInMs = 1e9; }); // 検証中は削除イベントを起こさない
+    await shot(pg, '09-tokusei-button');
+    await pg.click('#tokuseiButton');
+    const s = Number(await pg.textContent('#scoreText')); assert.ok(s >= 0 && s < 300, `0点付近に戻っていない: ${s}`);
+    assert.match(await pg.textContent('#toast'), /徳政令発動/);
+    await pg.waitForTimeout(1500);
+    const row = sqlite.prepare("SELECT score FROM accounts WHERE name_key='淫夢潜テスト'").get();
+    assert.ok(row.score >= 0 && row.score < 600, `サーバー側が0付近になっていない: ${row.score}`);
+    assert.equal(await pg.isVisible('#tokuseiButton'), false, '0以上ならボタンは隠れる');
+  });
   await t('背景は曲の再生位置で10秒ごとに切り替わる（枚数が足りなければ繰り返す）', async () => {
     const info = await pg.evaluate(async () => { const m = document.getElementById('music'); await new Promise((r) => { if (m.readyState >= 1) r(); else { m.addEventListener('loadedmetadata', r, { once: true }); setTimeout(r, 4000); } }); return { d: m.duration, playing: !m.paused }; });
     if (!(info.d > 0)) { console.log('    (このブラウザでは音声のメタデータが取れないため、再生位置の検証をスキップ)'); return; }

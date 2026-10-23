@@ -14,14 +14,16 @@ mkdirSync(out, { recursive: true });
 cpSync(join(pkg, 'vision_bundle.mjs'), join(out, 'vision_bundle.mjs'));
 cpSync(join(pkg, 'wasm'), join(out, 'wasm'), { recursive: true });
 
-const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task';
 const modelDir = join(root, 'vendor/models'); mkdirSync(modelDir, { recursive: true });
-const modelPath = join(modelDir, 'pose_landmarker_full.task');
-if (!existsSync(modelPath) || statSync(modelPath).size < 1_000_000) {
-  console.log('モデルをダウンロード中…'); const res = await fetch(MODEL_URL);
-  if (!res.ok) { console.error(`モデルの取得に失敗しました: HTTP ${res.status}`); process.exit(1); }
+// full=通常（精度重視） / lite=軽量（スマホ向け・速い）
+for (const kind of ['full', 'lite']) {
+  const url = `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${kind}/float16/1/pose_landmarker_${kind}.task`;
+  const modelPath = join(modelDir, `pose_landmarker_${kind}.task`);
+  if (existsSync(modelPath) && statSync(modelPath).size > 1_000_000) continue;
+  console.log(`モデル(${kind})をダウンロード中…`); const res = await fetch(url);
+  if (!res.ok) { console.error(`モデル(${kind})の取得に失敗しました: HTTP ${res.status}`); process.exit(1); }
   const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.length < 1_000_000) { console.error('モデルのサイズが小さすぎます。取得に失敗した可能性があります。'); process.exit(1); }
+  if (buf.length < 1_000_000) { console.error(`モデル(${kind})のサイズが小さすぎます。取得に失敗した可能性があります。`); process.exit(1); }
   writeFileSync(modelPath, buf);
 }
 console.log('vendor/ の準備が完了しました。');

@@ -185,7 +185,9 @@ async function postScore(request, env, body) {
   let bonusAt = acc.bonus_ts || 0;
   if (body.bonus === true && t - bonusAt >= BONUS_COOLDOWN_SEC) { maxUp += BONUS_MAX; bonusAt = t; }
   let clamped = false;
-  if (s > acc.score + maxUp) { s = acc.score + maxUp; clamped = true; }
+  // 徳政令カード: マイナスの点数を「ちょうど0」に戻す場合だけ、加点上限の対象外にする（0を超える加点は許可しない）
+  const debtClear = body.tokusei === true && acc.score < 0 && s === 0;
+  if (!debtClear && s > acc.score + maxUp) { s = acc.score + maxUp; clamped = true; }
   await env.DB.prepare('UPDATE accounts SET score = ?, score_ts = ?, last_access = ?, bonus_ts = ? WHERE id = ?').bind(s, t, minuteStamp(), bonusAt, acc.id).run();
   let rank = null;
   if (s > 0) rank = (await env.DB.prepare('SELECT COUNT(*) AS c FROM accounts WHERE score > ?').bind(s).first()).c + 1;
